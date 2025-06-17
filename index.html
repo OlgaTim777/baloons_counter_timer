@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Colorful Balloon Widget</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #e0f7fa;
+      position: relative;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+
+    .status {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .balloon-container {
+      position: absolute;
+      bottom: -150px;
+    }
+
+    .balloon {
+      width: 80px;
+      height: 100px;
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      background-color: red;
+      cursor: pointer;
+      animation: floatUp 10s linear forwards;
+      transition: transform 0.3s ease;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+      user-select: none;
+    }
+
+    .balloon:hover {
+      transform: scale(1.1);
+    }
+
+    .string {
+      position: absolute;
+      left: 50%;
+      top: 100px;
+      width: 2px;
+      height: 80px;
+      background-color: #333;
+      z-index: 0;
+    }
+
+    @keyframes floatUp {
+      from {
+        transform: translateY(0);
+        opacity: 0.8;
+      }
+      to {
+        transform: translateY(-120vh);
+        opacity: 0;
+      }
+    }
+
+    @keyframes blowUp {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+
+    .pop {
+      animation: blowUp 0.5s ease-out forwards !important;
+    }
+
+    .unclickable {
+      pointer-events: none;
+      cursor: default !important;
+      text-decoration: line-through;
+      opacity: 0.9;
+    }
+
+    .game-over {
+      font-size: 20px;
+      color: green;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .restart-button {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .restart-button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Timer & Score -->
+<div class="status">
+  <div id="timer">Time Left: 60</div>
+  <div id="score">Popped: 0</div>
+  <div id="gameOver" class="game-over"></div>
+  <button id="restartBtn" class="restart-button">Restart Game</button>
+</div>
+
+<script>
+  // Word lists
+  const balloonWords = ["WORD", "HELLO", "FUN", "HAPPY", "FLY", "POP", "GAME", "BUBBLE"];
+  const extraWords = ["STOP", "WAIT", "NO", "SKIP", "PAUSE"];
+
+  // Colors
+  const colors = ['#ff8a80', '#ff80ab', '#ea80fc', '#8c9eff', '#82b1ff', '#80deea', '#a5d6a7', '#ffe082'];
+
+  // Game variables
+  let poppedCount = 0;
+  let timeLeft = 60;
+  let gameActive = false;
+  let balloonInterval;
+  let timerInterval;
+
+  // DOM elements
+  const timerDisplay = document.getElementById('timer');
+  const scoreDisplay = document.getElementById('score');
+  const gameOverMessage = document.getElementById('gameOver');
+  const restartBtn = document.getElementById('restartBtn');
+
+  function updateCounter() {
+    scoreDisplay.textContent = 'Popped: ' + poppedCount;
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval); // Avoid duplicate timers
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timerDisplay.textContent = 'Time Left: ' + timeLeft;
+
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function createBalloon() {
+    if (!gameActive) return;
+
+    const container = document.createElement('div');
+    container.classList.add('balloon-container');
+
+    container.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+
+    const balloon = document.createElement('div');
+    balloon.classList.add('balloon');
+
+    const isExtra = Math.random() < 0.3; // 30% chance
+
+    let word = '';
+    if (isExtra) {
+      word = extraWords[Math.floor(Math.random() * extraWords.length)];
+      balloon.classList.add('unclickable');
+      balloon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    } else {
+      word = balloonWords[Math.floor(Math.random() * balloonWords.length)];
+      balloon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    balloon.textContent = word;
+
+    // String element below the balloon
+    const string = document.createElement('div');
+    string.classList.add('string');
+
+    // Append balloon and string
+    container.appendChild(balloon);
+    container.appendChild(string);
+
+    // Only add click handler if it's not an extra balloon
+    if (!isExtra) {
+      balloon.addEventListener('click', () => {
+        if (balloon.classList.contains('pop') || !gameActive) return;
+
+        balloon.classList.add('pop');
+        poppedCount++;
+        updateCounter();
+        playPopSound();
+      });
+    }
+
+    // Remove balloon after animation ends
+    balloon.addEventListener('animationend', (event) => {
+      if (event.animationName === 'blowUp' || event.animationName === 'floatUp') {
+        container.remove();
+      }
+    });
+
+    document.body.appendChild(container);
+  }
+
+  // Sound setup
+  const popSound = new Audio('https://www.soundjay.com/buttons/sounds/button-16.mp3'); 
+  popSound.volume = 0.3;
+
+  function playPopSound() {
+    popSound.currentTime = 0;
+    popSound.play().catch(() => {
+      // Ignore autoplay errors
+    });
+  }
+
+  // End the game
+  function endGame() {
+    clearInterval(timerInterval);
+    clearInterval(balloonInterval);
+    gameActive = false;
+    gameOverMessage.textContent = '⏰ Time\'s up! You popped ' + poppedCount + ' balloons.';
+    gameOverMessage.style.display = 'block';
+    restartBtn.style.display = 'inline-block';
+  }
+
+  // Reset and restart game
+  function restartGame() {
+    // Clear intervals
+    clearInterval(timerInterval);
+    clearInterval(balloonInterval);
+
+    // Clear existing balloons
+    document.querySelectorAll('.balloon-container').forEach(el => el.remove());
+
+    // Reset variables
+    poppedCount = 0;
+    timeLeft = 60;
+    gameActive = true;
+    updateCounter();
+    timerDisplay.textContent = 'Time Left: ' + timeLeft;
+    gameOverMessage.style.display = 'none';
+    restartBtn.style.display = 'none';
+
+    // Start again
+    startTimer();
+    balloonInterval = setInterval(createBalloon, 800);
+  }
+
+  // Attach event listener
+  restartBtn.addEventListener('click', restartGame);
+
+  // Start game
+  window.addEventListener('load', () => {
+    startGame();
+  });
+
+  function startGame() {
+    gameActive = true;
+    balloonInterval = setInterval(createBalloon, 800);
+    startTimer();
+  }
+</script>
+
+</body>
+</html>
