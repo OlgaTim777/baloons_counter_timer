@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Colorful Balloon Widget</title>
+  <title>Pop the Balloon</title>
+
+  <!-- Confetti.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script> 
+
   <style>
     body {
       margin: 0;
@@ -12,23 +16,40 @@
       position: relative;
       height: 100vh;
       font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      color: #333;
+      font-weight: bold;
+      z-index: 10;
+    }
+
+    .author {
+      position: absolute;
+      top: 40px;
+      width: 100%;
+      font-size: 14px;
+      color: #555;
+      z-index: 10;
     }
 
     .status {
       position: absolute;
-      top: 20px;
-      left: 20px;
-      z-index: 10;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 10px 15px;
-      border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      top: 60px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
       font-size: 18px;
       font-weight: bold;
       color: #333;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
+      z-index: 10;
     }
 
     .balloon-container {
@@ -37,34 +58,40 @@
     }
 
     .balloon {
-      width: 100px;
-      height: 120px;
+      width: 150px;
+      height: 180px;
       border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
       background-color: red;
       cursor: pointer;
-      animation: floatUp 10s linear forwards;
+      animation: floatUp 12s linear forwards, glitter 2s infinite ease-in-out;
       transition: transform 0.3s ease;
       position: relative;
       z-index: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: black;
+      color: white;
       font-weight: bold;
-      font-size: 16px;
+      font-size: 20px;
       user-select: none;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
 
     .balloon:hover {
-      transform: scale(1.1);
+      transform: scale(1.15);
+    }
+
+    @keyframes glitter {
+      0%, 100% { opacity: 1; filter: brightness(1); }
+      50% { opacity: 0.8; filter: brightness(1.3); }
     }
 
     .string {
       position: absolute;
       left: 50%;
-      top: 100px;
+      top: 100%;
       width: 4px;
-      height: 90px;
+      height: 100px;
       background-color: #333;
       z-index: 0;
     }
@@ -72,7 +99,7 @@
     @keyframes floatUp {
       from {
         transform: translateY(0);
-        opacity: 0.8;
+        opacity: 0.9;
       }
       to {
         transform: translateY(-120vh);
@@ -86,7 +113,7 @@
         opacity: 1;
       }
       100% {
-        transform: scale(2);
+        transform: scale(2.5);
         opacity: 0;
       }
     }
@@ -97,20 +124,65 @@
 
     .unclickable {
       pointer-events: none;
-      cursor: default !important;
-      /* Removed line-through */
-      opacity: 0.9; /* Optional: make it slightly different */
+      opacity: 0.9;
+    }
+
+    .end-screen {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      text-align: center;
+      padding: 10px;
+      z-index: 10;
+    }
+
+    .end-screen h2 {
+      font-size: 24px;
+      color: #d32f2f;
+      margin-bottom: 10px;
+    }
+
+    .end-screen p {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .restart-button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #ff4081;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .restart-button:hover {
+      background-color: #f50057;
     }
   </style>
 </head>
 <body>
 
-<!-- Status Display -->
+<h1>Pop the balloon with the right spelling</h1>
+<div class="author">
+<a href="https://vk.com/club221025676"  target="_blank" rel="noopener noreferrer">
+    <img src="https://i.imgur.com/QC0aRsL.jpeg"  alt="VK Logo" class="vk-logo">
+    Olga Timofeeva
+
+<!-- Timer and Score Display -->
 <div class="status">
   <div id="timer">Time Left: 60</div>
   <div id="score">Popped: 0</div>
-  <div id="gameOver" class="game-over"></div>
-  <button id="restartBtn" class="restart-button">Restart Game</button>
+</div>
+
+<!-- End Game Screen -->
+<div class="end-screen" id="endScreen" style="display:none;">
+  <h2>⏰ Time Up!</h2>
+  <p>You popped <span id="finalCount">0</span> balloons.</p>
+  <button class="restart-button" id="restartBtn">Restart Game</button>
 </div>
 
 <script>
@@ -130,7 +202,8 @@
   // DOM elements
   const timerDisplay = document.getElementById('timer');
   const scoreDisplay = document.getElementById('score');
-  const gameOverMessage = document.getElementById('gameOver');
+  const endScreen = document.getElementById('endScreen');
+  const finalCount = document.getElementById('finalCount');
   const restartBtn = document.getElementById('restartBtn');
 
   function updateCounter() {
@@ -138,7 +211,7 @@
   }
 
   function startTimer() {
-    clearInterval(window.timer); // Prevent duplicate timers
+    clearInterval(window.timer);
     window.timer = setInterval(() => {
       if (!gameActive) return;
 
@@ -156,8 +229,7 @@
 
     const container = document.createElement('div');
     container.classList.add('balloon-container');
-
-    container.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+    container.style.left = Math.random() * (window.innerWidth - 100) + 'px';
 
     const balloon = document.createElement('div');
     balloon.classList.add('balloon');
@@ -168,11 +240,11 @@
     if (isExtra) {
       word = extraWords[Math.floor(Math.random() * extraWords.length)];
       balloon.classList.add('unclickable');
-      balloon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)]; // colorful!
     } else {
       word = balloonWords[Math.floor(Math.random() * balloonWords.length)];
-      balloon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
     }
+
+    balloon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
 
     balloon.textContent = word;
 
@@ -192,7 +264,19 @@
         balloon.classList.add('pop');
         poppedCount++;
         updateCounter();
+
+        // Fancy confetti explosion!
+        confetti({
+          particleCount: 100,
+          spread: 90,
+          origin: { x: parseFloat(container.style.left) / window.innerWidth + 0.1, y: 0.5 }
+        });
+
         playPopSound();
+      });
+    } else {
+      balloon.addEventListener('click', () => {
+        playMistakeSound();
       });
     }
 
@@ -208,43 +292,40 @@
 
   // Sound setup
   const popSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-balloon-pop-short-85.wav'); 
+  const mistakeSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-wrong-answer-fail-notification-946.wav'); 
   popSound.volume = 0.3;
+  mistakeSound.volume = 0.5;
 
   function playPopSound() {
     popSound.currentTime = 0;
-    popSound.play().catch(() => {
-      // Ignore autoplay errors
-    });
+    popSound.play().catch(() => {});
+  }
+
+  function playMistakeSound() {
+    mistakeSound.currentTime = 0;
+    mistakeSound.play().catch(() => {});
   }
 
   // End the game
   function endGame() {
     gameActive = false;
     clearInterval(balloonInterval);
-    gameOverMessage.textContent = '⏰ Time\'s up! You popped ' + poppedCount + ' balloons.';
-    gameOverMessage.style.display = 'block';
-    restartBtn.style.display = 'inline-block';
+    clearInterval(window.timer);
+    finalCount.textContent = poppedCount;
+    endScreen.style.display = 'block';
   }
 
   // Reset and restart game
   function restartGame() {
-    // Clear intervals
-    clearInterval(balloonInterval);
-    clearInterval(window.timer);
-
-    // Clear existing balloons
     document.querySelectorAll('.balloon-container').forEach(el => el.remove());
 
-    // Reset variables
     poppedCount = 0;
     timeLeft = 60;
     gameActive = true;
     updateCounter();
     timerDisplay.textContent = 'Time Left: ' + timeLeft;
-    gameOverMessage.style.display = 'none';
-    restartBtn.style.display = 'none';
+    endScreen.style.display = 'none';
 
-    // Start again
     startTimer();
     balloonInterval = setInterval(createBalloon, 800);
   }
