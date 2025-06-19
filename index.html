@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Spelling Pop</title>
-
-  <!-- Confetti.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>    
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script> 
 
   <style>
     body {
@@ -53,6 +51,16 @@
       font-size: 18px;
       font-weight: bold;
       color: #00008B;
+      z-index: 10;
+    }
+
+    #debug {
+      position: absolute;
+      top: 150px;
+      width: 100%;
+      font-size: 16px;
+      color: red;
+      font-weight: bold;
       z-index: 10;
     }
 
@@ -112,18 +120,21 @@
     }
 
     @keyframes blowUp {
-      0% {
-        transform: scale(1);
-        opacity: 1;
-      }
-      100% {
-        transform: scale(2.5);
-        opacity: 0;
-      }
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+
+    @keyframes shrink {
+      0% { transform: scale(1); }
+      100% { transform: scale(0.5); opacity: 0; }
     }
 
     .pop {
       animation: blowUp 0.5s ease-out forwards !important;
+    }
+
+    .shrink {
+      animation: shrink 0.3s ease-out forwards !important;
     }
 
     .unclickable {
@@ -182,6 +193,9 @@
   <div id="score">Popped: 0</div>
 </div>
 
+<!-- Debug Mistake Counter -->
+<div id="debug">Mistakes: 0</div>
+
 <!-- End Game Screen -->
 <div class="end-screen" id="endScreen" style="display:none;">
   <h2>⏰ Time Up!</h2>
@@ -191,14 +205,10 @@
 </div>
 
 <script>
-  // Word lists
   const balloonWords = ["RED", "YELLOW", "ORANGE", "GREEN", "BLUE", "PURPLE", "BLACK", "WHITE", "BROWN", "GREY", "PINK"];
   const extraWords = ["RAD", "WAIT", "BLY", "ELAU", "BLAK"];
-
-  // Colors
   const colors = ['#ff8a80', '#ff80ab', '#ea80fc', '#8c9eff', '#82b1ff', '#80deea', '#a5d6a7', '#ffe082'];
 
-  // Game variables
   let poppedCount = 0;
   let mistakeCount = 0;
   let timeLeft = 60;
@@ -206,9 +216,9 @@
   let balloonInterval;
   const maxBalloons = 9;
 
-  // DOM elements
   const timerDisplay = document.getElementById('timer');
   const scoreDisplay = document.getElementById('score');
+  const debugDisplay = document.getElementById('debug');
   const endScreen = document.getElementById('endScreen');
   const finalCount = document.getElementById('finalCount');
   const finalMistakes = document.getElementById('finalMistakes');
@@ -216,44 +226,86 @@
 
   function updateCounter() {
     scoreDisplay.textContent = 'Popped: ' + poppedCount;
+    debugDisplay.textContent = 'Mistakes: ' + mistakeCount;
+    finalMistakes.textContent = mistakeCount;
   }
 
   function startTimer() {
     clearInterval(window.timer);
     window.timer = setInterval(() => {
       if (!gameActive) return;
-
       timeLeft--;
       timerDisplay.textContent = 'Time Left: ' + timeLeft;
-
-      if (timeLeft <= 0) {
-        endGame();
-      }
+      if (timeLeft <= 0) endGame();
     }, 1000);
+  }
+
+  function isOverlapping(newRect) {
+    const containers = document.querySelectorAll('.balloon-container');
+    for (let container of containers) {
+      const el = container.querySelector('.balloon');
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (
+        newRect.left < rect.right &&
+        newRect.right > rect.left &&
+        newRect.top < rect.bottom &&
+        newRect.bottom > rect.top
+      ) return true;
+    }
+    return false;
   }
 
   function createBalloon() {
     if (!gameActive || document.querySelectorAll('.balloon-container').length >= maxBalloons) return;
 
+    let attempt = 0;
+    let leftPos;
+
+    do {
+      attempt++;
+      if (attempt > 20) return;
+
+      leftPos = Math.random() * (window.innerWidth - 150) + 'px';
+
+      const tempContainer = document.createElement('div');
+      const tempBalloon = document.createElement('div');
+      tempContainer.classList.add('balloon-container');
+      tempBalloon.classList.add('balloon');
+      tempBalloon.style.width = '150px';
+      tempBalloon.style.height = '180px';
+      tempBalloon.style.position = 'absolute';
+      tempBalloon.style.left = leftPos;
+      tempBalloon.style.top = '90vh';
+      tempContainer.appendChild(tempBalloon);
+      document.body.appendChild(tempContainer);
+
+      const rect = tempBalloon.getBoundingClientRect();
+      const newRect = {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom
+      };
+
+      document.body.removeChild(tempContainer);
+
+      if (isOverlapping(newRect)) continue;
+      else break;
+
+    } while (true);
+
     const container = document.createElement('div');
     container.classList.add('balloon-container');
-    container.style.left = Math.random() * (window.innerWidth - 100) + 'px';
+    container.style.left = leftPos;
+    container.style.top = '90vh';
 
     const balloon = document.createElement('div');
     balloon.classList.add('balloon');
 
     const isExtra = Math.random() < 0.3;
-
-    let word = '';
-    if (isExtra) {
-      word = extraWords[Math.floor(Math.random() * extraWords.length)];
-      balloon.classList.add('unclickable');
-    } else {
-      word = balloonWords[Math.floor(Math.random() * balloonWords.length)];
-    }
-
+    let word = isExtra ? extraWords[Math.floor(Math.random() * extraWords.length)] : balloonWords[Math.floor(Math.random() * balloonWords.length)];
     balloon.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-
     balloon.textContent = word;
 
     const string = document.createElement('div');
@@ -265,28 +317,25 @@
     if (!isExtra) {
       balloon.addEventListener('click', () => {
         if (balloon.classList.contains('pop') || !gameActive) return;
-
         balloon.classList.add('pop');
         poppedCount++;
         updateCounter();
-
-        confetti({
-          particleCount: 100,
-          spread: 90,
-          origin: { x: parseFloat(container.style.left) / window.innerWidth + 0.1, y: 0.5 }
-        });
-
-        playPopSound();
+        confetti({ particleCount: 100, spread: 90, origin: { x: parseFloat(container.style.left) / window.innerWidth + 0.1, y: 0.5 } });
       });
     } else {
       balloon.addEventListener('click', () => {
+        if (!gameActive) return;
+
         mistakeCount++;
-        playMistakeSound();
+        updateCounter();
+        balloon.classList.add('shrink');
+
+        console.log("Ошибка засчитана!", mistakeCount);
       });
     }
 
     balloon.addEventListener('animationend', (event) => {
-      if (event.animationName === 'blowUp' || event.animationName === 'floatUp') {
+      if (['blowUp', 'floatUp', 'shrink'].includes(event.animationName)) {
         container.remove();
       }
     });
@@ -294,45 +343,24 @@
     document.body.appendChild(container);
   }
 
-  const popSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-balloon-pop-short-85.wav');    
-  const mistakeSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-wrong-answer-fail-notification-946.wav');    
-  popSound.volume = 0.3;
-  mistakeSound.volume = 0.5;
-
-  function playPopSound() {
-    popSound.currentTime = 0;
-    popSound.play().catch(() => {});
-  }
-
-  function playMistakeSound() {
-    mistakeSound.currentTime = 0;
-    mistakeSound.play().catch(() => {});
-  }
-
   function endGame() {
     gameActive = false;
     clearInterval(balloonInterval);
     clearInterval(window.timer);
     finalCount.textContent = poppedCount;
-    finalMistakes.textContent = mistakeCount;
+    updateCounter();
     endScreen.style.display = 'block';
   }
 
   function restartGame() {
-    const containers = document.querySelectorAll('.balloon-container');
-    if (containers.length > 0) {
-      containers.forEach(el => el.remove());
-    }
-
+    document.querySelectorAll('.balloon-container').forEach(el => el.remove());
     poppedCount = 0;
     mistakeCount = 0;
     timeLeft = 60;
     gameActive = true;
-
     updateCounter();
     timerDisplay.textContent = 'Time Left: ' + timeLeft;
     endScreen.style.display = 'none';
-
     startTimer();
     balloonInterval = setInterval(createBalloon, 800);
   }
