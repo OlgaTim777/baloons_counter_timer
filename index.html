@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pop the Balloon</title>
+  <title>Spelling Pop</title>
 
   <!-- Confetti.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script> 
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>    
 
   <style>
     body {
@@ -21,34 +21,38 @@
 
     h1 {
       position: absolute;
-      top: 10px;
+      top: 20px;
       width: 100%;
       text-align: center;
       font-size: 24px;
-      color: #333;
+      color: #8A2BE2;
       font-weight: bold;
       z-index: 10;
     }
 
     .author {
       position: absolute;
-      top: 40px;
+      top: 70px;
       width: 100%;
-      font-size: 14px;
-      color: #555;
+      font-size: 16px;
+      color: #006400;
       z-index: 10;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
     }
 
     .status {
       position: absolute;
-      top: 60px;
+      top: 110px;
       width: 100%;
       display: flex;
       justify-content: center;
       gap: 40px;
       font-size: 18px;
       font-weight: bold;
-      color: #333;
+      color: #00008B;
       z-index: 10;
     }
 
@@ -166,10 +170,11 @@
 </head>
 <body>
 
-<h1>Pop the balloon with the right spelling</h1>
-<div style="display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 16px; color: #888; margin-top: -15px;">
+<h1>Spelling Pop</h1>
+<div class="author">
   <img src="https://i.imgur.com/QC0aRsL.jpeg"  alt="Designer Logo" width="32" height="32">
-  <span>by Olga Timofeeva</span>
+  <a href="https://vk.com/club221025676"  target="_blank" style="color: inherit; text-decoration: none;">by Olga Timofeeva</a>
+</div>
 
 <!-- Timer and Score Display -->
 <div class="status">
@@ -181,6 +186,7 @@
 <div class="end-screen" id="endScreen" style="display:none;">
   <h2>⏰ Time Up!</h2>
   <p>You popped <span id="finalCount">0</span> balloons.</p>
+  <p>You made <span id="finalMistakes">0</span> mistakes.</p>
   <button class="restart-button" id="restartBtn">Restart Game</button>
 </div>
 
@@ -194,15 +200,18 @@
 
   // Game variables
   let poppedCount = 0;
+  let mistakeCount = 0;
   let timeLeft = 60;
   let gameActive = true;
   let balloonInterval;
+  const maxBalloons = 9;
 
   // DOM elements
   const timerDisplay = document.getElementById('timer');
   const scoreDisplay = document.getElementById('score');
   const endScreen = document.getElementById('endScreen');
   const finalCount = document.getElementById('finalCount');
+  const finalMistakes = document.getElementById('finalMistakes');
   const restartBtn = document.getElementById('restartBtn');
 
   function updateCounter() {
@@ -224,7 +233,7 @@
   }
 
   function createBalloon() {
-    if (!gameActive) return;
+    if (!gameActive || document.querySelectorAll('.balloon-container').length >= maxBalloons) return;
 
     const container = document.createElement('div');
     container.classList.add('balloon-container');
@@ -233,7 +242,7 @@
     const balloon = document.createElement('div');
     balloon.classList.add('balloon');
 
-    const isExtra = Math.random() < 0.3; // 30% chance
+    const isExtra = Math.random() < 0.3;
 
     let word = '';
     if (isExtra) {
@@ -247,15 +256,12 @@
 
     balloon.textContent = word;
 
-    // String element below the balloon
     const string = document.createElement('div');
     string.classList.add('string');
 
-    // Append balloon and string
     container.appendChild(balloon);
     container.appendChild(string);
 
-    // Only add click handler if it's not an extra balloon
     if (!isExtra) {
       balloon.addEventListener('click', () => {
         if (balloon.classList.contains('pop') || !gameActive) return;
@@ -264,7 +270,6 @@
         poppedCount++;
         updateCounter();
 
-        // Fancy confetti explosion!
         confetti({
           particleCount: 100,
           spread: 90,
@@ -275,11 +280,11 @@
       });
     } else {
       balloon.addEventListener('click', () => {
+        mistakeCount++;
         playMistakeSound();
       });
     }
 
-    // Remove balloon after animation ends
     balloon.addEventListener('animationend', (event) => {
       if (event.animationName === 'blowUp' || event.animationName === 'floatUp') {
         container.remove();
@@ -289,9 +294,8 @@
     document.body.appendChild(container);
   }
 
-  // Sound setup
-  const popSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-balloon-pop-short-85.wav'); 
-  const mistakeSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-wrong-answer-fail-notification-946.wav'); 
+  const popSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-balloon-pop-short-85.wav');    
+  const mistakeSound = new Audio('https://assets.mixkit.co/sounds/download/mixkit-wrong-answer-fail-notification-946.wav');    
   popSound.volume = 0.3;
   mistakeSound.volume = 0.5;
 
@@ -305,22 +309,26 @@
     mistakeSound.play().catch(() => {});
   }
 
-  // End the game
   function endGame() {
     gameActive = false;
     clearInterval(balloonInterval);
     clearInterval(window.timer);
     finalCount.textContent = poppedCount;
+    finalMistakes.textContent = mistakeCount;
     endScreen.style.display = 'block';
   }
 
-  // Reset and restart game
   function restartGame() {
-    document.querySelectorAll('.balloon-container').forEach(el => el.remove());
+    const containers = document.querySelectorAll('.balloon-container');
+    if (containers.length > 0) {
+      containers.forEach(el => el.remove());
+    }
 
     poppedCount = 0;
+    mistakeCount = 0;
     timeLeft = 60;
     gameActive = true;
+
     updateCounter();
     timerDisplay.textContent = 'Time Left: ' + timeLeft;
     endScreen.style.display = 'none';
@@ -329,10 +337,8 @@
     balloonInterval = setInterval(createBalloon, 800);
   }
 
-  // Attach event listener
   restartBtn.addEventListener('click', restartGame);
 
-  // Start game
   window.addEventListener('load', () => {
     startGame();
   });
